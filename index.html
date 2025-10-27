@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Mental Rotation Task</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <!-- jsPsych & plugin -->
+  <script src="https://unpkg.com/jspsych@7.3.3/dist/jspsych.js"></script>
+  <link href="https://unpkg.com/jspsych@7.3.3/dist/jspsych.css" rel="stylesheet">
+  <script src="https://unpkg.com/@jspsych/plugin-html-keyboard-response@1.1.3"></script>
+
+  <!-- three.js -->
+  <script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
+
+  <style>
+    body { background:#111; color:#eee; font-family:sans-serif; text-align:center; }
+    .stim { margin:10px; }
+  </style>
+</head>
+<body>
+  <div id="jspsych-target"></div>
+
+  <script>
+    // --- quick test to ensure jsPsych loads ---
+    const jsPsych = new jsPsychModule.JsPsych({
+      display_element: 'jspsych-target'
+    });
+    jsPsych.run([{
+      type: jsPsychHtmlKeyboardResponse,
+      stimulus: '<p>jsPsych is working 🎉<br>Press any key to continue.</p>'
+    }]);
+  </script>
+</body>
+</html>
