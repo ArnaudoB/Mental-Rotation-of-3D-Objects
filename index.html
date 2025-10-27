@@ -159,11 +159,77 @@ function center(canvas){
   return {offsetX: canvas.width/2, offsetY: canvas.height/2, scale: s};
 }
 function draw3D(ctx, poly, {angle=0, offsetX, offsetY, scale}){
-  ctx.save(); ctx.translate(offsetX, offsetY);
-  // deterministic shallow depth for structure
+  // Render each unit as a **3D voxel (cube)** with 6 faces, depth-sorted for proper occlusion
+  // Colors: slightly different tones per face to convey lighting
+  const COL = {
+    top:   'rgba(255, 234, 170, 0.98)',   // brightest
+    right: 'rgba(248, 205, 120, 0.98)',
+    left:  'rgba(221, 168, 82, 0.98)',
+    front: 'rgba(236, 190, 110, 0.98)',
+    back:  'rgba(200, 154, 70, 0.98)',
+    bottom:'rgba(160, 120, 55, 0.98)'
+  };
+  const EDGE = 'rgba(255,255,255,0.85)';
+
+  // 3D helpers
+  function proj(pt){ return project3D(pt.x, pt.y, pt.z, 30, angle, scale); }
+  function drawPoly(pts, fill){
+    ctx.beginPath();
+    ctx.moveTo(pts[0].x, pts[0].y);
+    for(let i=1;i<pts.length;i++) ctx.lineTo(pts[i].x, pts[i].y);
+    ctx.closePath();
+    ctx.fillStyle = fill; ctx.fill();
+    ctx.strokeStyle = EDGE; ctx.lineWidth = 1.4; ctx.stroke();
+  }
+
+  // Build cubes from poly cells. Put shape roughly centered around origin before projection
   const mx = poly.reduce((s,p)=>s+p.x,0)/poly.length;
   const my = poly.reduce((s,p)=>s+p.y,0)/poly.length;
-  const depth = poly.map(p=>({x:p.x, y:p.y, z: 0.35*(p.x-mx) - 0.25*(p.y-my)}));
+
+  // Each cube has unit size in model space
+  const cubes = poly.map(p=>({x: (p.x-mx), y: (p.y-my), z: 0}));
+
+  // For painter's algorithm, collect ALL faces with their average depth
+  const faces = [];
+  for(const c of cubes){
+    // 8 corners of the cube
+    const x=c.x-0.5, y=c.y-0.5, z=c.z-0.5; // shift so cube is centered at integer cell
+    const v = [
+      {x:x,   y:y,   z:z},   // 0
+      {x:x+1, y:y,   z:z},   // 1
+      {x:x+1, y:y+1, z:z},   // 2
+      {x:x,   y:y+1, z:z},   // 3
+      {x:x,   y:y,   z:z+1}, // 4
+      {x:x+1, y:y,   z:z+1}, // 5
+      {x:x+1, y:y+1, z:z+1}, // 6
+      {x:x,   y:y+1, z:z+1}  // 7
+    ].map(proj);
+
+    // Define faces by vertex indices
+    const F = [
+      {key:'top',    idx:[4,5,6,7]},
+      {key:'bottom', idx:[0,1,2,3]},
+      {key:'left',   idx:[0,4,7,3]},
+      {key:'right',  idx:[1,5,6,2]},
+      {key:'front',  idx:[2,3,7,6]},
+      {key:'back',   idx:[0,1,5,4]}
+    ];
+
+    for(const f of F){
+      const pts = f.idx.map(i=>v[i]);
+      const zavg = pts.reduce((s,p)=>s+p.z,0)/pts.length; // use projected z for ordering
+      faces.push({pts, color: COL[f.key], zavg});
+    }
+  }
+
+  // Sort by depth (farther first), then draw
+  faces.sort((a,b)=>a.zavg - b.zavg);
+
+  ctx.save();
+  ctx.translate(offsetX, offsetY);
+  for(const f of faces){ drawPoly(f.pts, f.color); }
+  ctx.restore();
+}));
   // project top-left corners of each unit square
   let squares = depth.map(p=>{
     const pt = project3D(p.x-2.5, p.y-2.5, p.z, 30, angle, scale);
