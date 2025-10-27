@@ -36,6 +36,8 @@
     footer{opacity:.8;font-size:12px;text-align:center;padding:20px}
     .sep{height:1px;background:#1a2230;margin:6px 0 12px}
   </style>
+  <!-- Chart.js for interactive RT vs angle plot -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
   <header>
@@ -97,6 +99,9 @@
       <h3 style="margin:6px 0 12px">Results</h3>
       <div id="summary" class="muted">Run some trials to see per-angle reaction times and regression.</div>
       <div id="tables"></div>
+      <div style="margin-top:14px">
+        <canvas id="chartRT" height="220" aria-label="RT vs Angle plot"></canvas>
+      </div>
       <div class="row" style="margin-top:10px; gap:8px">
         <button id="btn-export">Export CSV</button>
         <a id="dl" class="pill" href="#" download style="display:none">Download CSV</a>
@@ -104,32 +109,107 @@
     </section>
   </div>
 
-  <footer>Built with plain HTML/JS/CSS. Adds pseudo-3D perspective and full experimental logic (RT, regression, CSV export).</footer>
+  <footer>Built with plain HTML/JS/CSS. Adds pseudo-3D perspective and full experimental logic (RT, regression, CSV export, interactive plot).</footer>
 
 <script>
+// ---------- Utilities ----------
 function randChoice(a){return a[Math.floor(Math.random()*a.length)]}
 function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
-function genPolyomino(n=10){const dirs=[[1,0],[-1,0],[0,1],[0,-1]];let path=[{x:0,y:0}],cells=new Set(['0,0']);while(path.length<n){const [dx,dy]=randChoice(dirs);let nx=path.at(-1).x+dx,ny=path.at(-1).y+dy;const k=`${nx},${ny}`;if(!cells.has(k)){cells.add(k);path.push({x:nx,y:ny})}}const minx=Math.min(...path.map(p=>p.x)),miny=Math.min(...path.map(p=>p.y));return path.map(p=>({x:p.x-minx,y:p.y-miny}))}
+const now=()=>performance.now();
+
+// ---------- Shape generation ----------
+function genPolyomino(n=10){const dirs=[[1,0],[-1,0],[0,1],[0,-1]];let path=[{x:0,y:0}],cells=new Set(['0,0']);let spins=0;while(path.length<n&&spins<5000){spins++;const [dx,dy]=randChoice(dirs);let nx=path.at(-1).x+dx,ny=path.at(-1).y+dy;const k=`${nx},${ny}`;if(path.length>1){const p2=path.at(-2);if(p2.x===nx&&p2.y===ny)continue;}if(!cells.has(k)){cells.add(k);path.push({x:nx,y:ny})}}if(path.length<n)return genPolyomino(n);const minx=Math.min(...path.map(p=>p.x)),miny=Math.min(...path.map(p=>p.y));return path.map(p=>({x:p.x-minx,y:p.y-miny}))}
 function mirrorX(p){const maxx=Math.max(...p.map(c=>c.x));return p.map(c=>({x:maxx-c.x,y:c.y}))}
-function project3D(x,y,z,angleX,angleY,scale){let rx=x,ry=y,rz=z;const radX=angleX*Math.PI/180,radY=angleY*Math.PI/180;const cx=Math.cos(radX),sx=Math.sin(radX),cy=Math.cos(radY),sy=Math.sin(radY);let y2=ry*cx-rz*sx,z2=ry*sx+rz*cx;let x2=rx*cy+z2*sy,z3=-rx*sy+z2*cy;return{x:x2*scale,y:y2*scale,z:z3*scale}}
+
+// ---------- 3D projection & drawing ----------
+function project3D(x,y,z,angleX,angleY,scale){const rx=x,ry=y,rz=z;const radX=angleX*Math.PI/180,radY=angleY*Math.PI/180;const cx=Math.cos(radX),sx=Math.sin(radX),cy=Math.cos(radY),sy=Math.sin(radY);const y2=ry*cx-rz*sx;const z2=ry*sx+rz*cx;const x2=rx*cy+z2*sy;const z3=-rx*sy+z2*cy;return{x:x2*scale,y:y2*scale,z:z3*scale}}
 function draw3D(ctx,poly,{angle=0,offsetX,offsetY}){ctx.save();ctx.translate(offsetX,offsetY);const scale=25;const depth=poly.map(p=>({...p,z:Math.random()*0.6-0.3}));const pts=depth.map(p=>project3D(p.x-2.5,p.y-2.5,p.z,30,angle,scale));ctx.beginPath();ctx.fillStyle='rgba(106,163,255,0.15)';ctx.strokeStyle='#7eb4ff';for(const pt of pts){ctx.rect(pt.x,pt.y,scale,scale)}ctx.fill();ctx.stroke();ctx.restore()}
 function center(canvas){return{offsetX:canvas.width/2,offsetY:canvas.height/2}}
 
+// ---------- Experiment state ----------
 const ANGLE_DEFAULTS=[0,20,40,60,80,100,120,140,160,180];
 let BASE=genPolyomino(10),MIRROR=mirrorX(BASE);
 const canvasL=document.getElementById('canvasL'),canvasR=document.getElementById('canvasR');
 const ctxL=canvasL.getContext('2d'),ctxR=canvasR.getContext('2d');
 const state={trial:0,total:0,angles:[...ANGLE_DEFAULTS],allowSame:true,allowDiff:true,data:[],rtStart:null,angle:0,condition:null};
+let rtChart=null;
+
+// ---------- Core flow ----------
 function clear(){ctxL.clearRect(0,0,canvasL.width,canvasL.height);ctxR.clearRect(0,0,canvasR.width,canvasR.height)}
-function newTrial(){if(state.trial>=state.total)return finish();state.trial++;const angle=randChoice(state.angles);const cond=(Math.random()<0.5?'same':'diff');state.condition=cond;state.angle=angle;clear();draw3D(ctxL,BASE,{angle:0,...center(canvasL)});draw3D(ctxR,cond==='same'?BASE:MIRROR,{angle,...center(canvasR)});state.rtStart=performance.now();document.getElementById('trialpill').textContent=`Trial: ${state.trial}/${state.total}`;document.getElementById('anglepill').textContent=`Angle: ${angle}°`;document.getElementById('condpill').textContent=`Condition: ${cond}`;document.getElementById('feedback').textContent='';}
-function respond(ans){if(!state.rtStart)return;const rt=performance.now()-state.rtStart;const correct=(ans===state.condition);state.data.push({trial:state.trial,angle:state.angle,cond:state.condition,ans,correct,rt});document.getElementById('feedback').innerHTML=correct?`<span class='ok'>Correct</span> (${Math.round(rt)} ms)`: `<span class='err'>Wrong</span> (${Math.round(rt)} ms)`;state.rtStart=null;setTimeout(newTrial,400)}
-function finish(){document.getElementById('status').textContent=`Finished ${state.data.length} trials.`;summarize()}
-function mean(a){return a.reduce((s,x)=>s+x,0)/a.length}
-function sd(a){const m=mean(a);return Math.sqrt(mean(a.map(x=>(x-m)**2)))}
-function linreg(x,y){const mx=mean(x),my=mean(y);let num=0,den=0,sst=0;for(let i=0;i<x.length;i++){const dx=x[i]-mx,dy=y[i]-my;num+=dx*dy;den+=dx*dx;sst+=(y[i]-my)**2;}const b=num/den,a=my-b*mx;let ssr=0;for(let i=0;i<x.length;i++){const yhat=a+b*x[i];ssr+=(yhat-my)**2;}return{a,b,r2:ssr/sst}}
-function summarize(){const d=state.data.filter(e=>e.cond==='same'&&e.correct);if(!d.length)return;const byAngle={};d.forEach(e=>{(byAngle[e.angle]=byAngle[e.angle]||[]).push(e.rt)});const rows=Object.entries(byAngle).map(([a,v])=>({angle:+a,mean:mean(v),sd:sd(v),n:v.length})).sort((a,b)=>a.angle-b.angle);const xs=rows.map(r=>r.angle),ys=rows.map(r=>r.mean);const {a,b,r2}=linreg(xs,ys);document.getElementById('summary').textContent=`a=${a.toFixed(1)}ms, b=${b.toFixed(2)}ms/deg, R²=${r2.toFixed(3)}`;document.getElementById('tables').innerHTML='<table><tr><th>Angle</th><th>N</th><th>Mean RT</th><th>SD</th></tr>'+rows.map(r=>`<tr><td>${r.angle}</td><td>${r.n}</td><td>${r.mean.toFixed(1)}</td><td>${r.sd.toFixed(1)}</td></tr>`).join('')+'</table>';}
+function ui(id){return document.getElementById(id)}
+function newTrial(){if(state.trial>=state.total)return finish();state.trial++;const angle=randChoice(state.angles);const cond=(Math.random()<0.5?'same':'diff');state.condition=cond;state.angle=angle;clear();draw3D(ctxL,BASE,{angle:0,...center(canvasL)});draw3D(ctxR,cond==='same'?BASE:MIRROR,{angle,...center(canvasR)});state.rtStart=now();ui('trialpill').textContent=`Trial: ${state.trial}/${state.total}`;ui('anglepill').textContent=`Angle: ${angle}°`;ui('condpill').textContent=`Condition: ${cond}`;ui('feedback').textContent='';}
+function respond(ans){if(!state.rtStart)return;const rt=now()-state.rtStart;const correct=(ans===state.condition);state.data.push({pid:ui('pid').value.trim()||'NA',trial:state.trial,t:Date.now(),angle:state.angle,cond:state.condition,answer:ans,correct:correct?1:0,rt_ms:Math.round(rt)});ui('feedback').innerHTML=correct?`<span class='ok'>Correct</span> (${Math.round(rt)} ms)`: `<span class='err'>Wrong</span> (${Math.round(rt)} ms)`;state.rtStart=null;setTimeout(newTrial,400)}
+function finish(){ui('status').textContent=`Finished ${state.data.length} trials.`;summarize()}
+
+// ---------- Stats ----------
+const mean=a=>a.reduce((s,x)=>s+x,0)/a.length;const sd=a=>{const m=mean(a);return Math.sqrt(mean(a.map(x=>(x-m)**2)))}
+function linreg(x,y){const mx=mean(x),my=mean(y);let num=0,den=0,sst=0;for(let i=0;i<x.length;i++){const dx=x[i]-mx,dy=y[i]-my;num+=dx*dy;den+=dx*dx;sst+=(y[i]-my)**2;}const b=den===0?0:num/den;const a=my-b*mx;let ssr=0;for(let i=0;i<x.length;i++){const yhat=a+b*x[i];ssr+=(yhat-my)**2;}return{a,b,r2: sst===0?0:ssr/sst}}
+
+function summarize(){
+  // table + regression (SAME & correct)
+  const sameCorrect=state.data.filter(d=>d.cond==='same'&&d.correct===1);
+  if(!sameCorrect.length){ui('summary').textContent='No correct SAME trials yet.';ui('tables').innerHTML='';if(rtChart){rtChart.destroy();rtChart=null;}return}
+  const byAngle=new Map();
+  for(const d of sameCorrect){if(!byAngle.has(d.angle))byAngle.set(d.angle,[]);byAngle.get(d.angle).push(d.rt_ms)}
+  const rows=[...byAngle.entries()].map(([ang,list])=>({angle: +ang, n:list.length, mean: mean(list), sd: sd(list)})).sort((a,b)=>a.angle-b.angle);
+  const xs=rows.map(r=>r.angle), ys=rows.map(r=>r.mean);
+  const {a,b,r2}=linreg(xs,ys);
+  ui('summary').textContent=`Same & correct: ${sameCorrect.length}. Regression RT=a+b·θ → a=${a.toFixed(1)}ms, b=${b.toFixed(2)}ms/deg, R²=${r2.toFixed(3)}.`;
+  ui('tables').innerHTML='<table><thead><tr><th>Angle (°)</th><th>N</th><th>Mean RT (ms)</th><th>SD (ms)</th></tr></thead><tbody>'+
+    rows.map(r=>`<tr><td>${r.angle}</td><td>${r.n}</td><td>${r.mean.toFixed(1)}</td><td>${r.sd.toFixed(1)}</td></tr>`).join('')+
+    '</tbody></table>';
+
+  // Interactive plot using Chart.js
+  const ctxPlot=document.getElementById('chartRT').getContext('2d');
+  if(rtChart){rtChart.destroy();}
+  // Scatter points
+  const scatterData=rows.map(r=>({x:r.angle,y:r.mean}));
+  // Regression line evaluated from min to max angle
+  const xMin=Math.min(...xs), xMax=Math.max(...xs);
+  const xLine=[]; for(let th=xMin; th<=xMax; th+= (xMax-xMin)/100 || 1){xLine.push(th)}
+  const lineData=xLine.map(x=>({x, y:a + b*x}));
+  rtChart=new Chart(ctxPlot,{
+    type:'scatter',
+    data:{
+      datasets:[
+        {label:'Mean RT per angle', data: scatterData, pointRadius:5, borderWidth:0, backgroundColor:'rgba(106,163,255,0.9)'},
+        {label:`Fit: RT = ${a.toFixed(1)} + ${b.toFixed(2)}·θ`, data: lineData, type:'line', borderWidth:2, pointRadius:0, fill:false, borderColor:'rgba(200,220,255,0.9)'}
+      ]
+    },
+    options:{
+      responsive:true,
+      maintainAspectRatio:false,
+      scales:{
+        x:{title:{display:true,text:'Rotation angle θ (deg)'}},
+        y:{title:{display:true,text:'Reaction time (ms)'}}
+      },
+      plugins:{
+        legend:{display:true},
+        tooltip:{callbacks:{
+          afterLabel:(ctx)=>{const angle=ctx.parsed.x;const row=rows.find(r=>r.angle===angle);return row?`N=${row.n}`:''}
+        }}
+      }
+    }
+  });
+}
+
+// ---------- CSV export ----------
+function toCSV(rows){const header=['pid','trial','timestamp_ms','angle_deg','condition','answer','correct','rt_ms'];const lines=[header.join(',')];for(const r of rows){lines.push([r.pid,r.trial,r.t,r.angle,r.cond,r.answer,r.correct,r.rt_ms].join(','))}return lines.join('\n')}
+ui('btn-export').addEventListener('click',()=>{const csv=toCSV(state.data);const blob=new Blob([csv],{type:'text/csv'});const url=URL.createObjectURL(blob);const a=ui('dl');a.href=url;a.download=`mental_rotation_${Date.now()}.csv`;a.style.display='inline-block';a.textContent='Download CSV'});
+
+// ---------- Controls ----------
 window.addEventListener('keydown',e=>{if(e.key==='s'||e.key==='S')respond('same');if(e.key==='d'||e.key==='D')respond('diff')});
-document.getElementById('btn-same').onclick=()=>respond('same');document.getElementById('btn-diff').onclick=()=>respond('diff');document.getElementById('btn-start').onclick=()=>{state.total=parseInt(document.getElementById('ntrials').value)||80;state.trial=0;state.data=[];newTrial()};document.getElementById('btn-shape').onclick=()=>{BASE=genPolyomino(10);MIRROR=mirrorX(BASE);clear();draw3D(ctxL,BASE,{angle:0,...center(canvasL)});draw3D(ctxR,BASE,{angle:0,...center(canvasR)});};
+ui('btn-same').onclick=()=>respond('same');
+ui('btn-diff').onclick=()=>respond('diff');
+ui('btn-start').onclick=()=>{state.total=Math.max(10,parseInt(ui('ntrials').value)||80);state.trial=0;state.data=[];state.angles=[...([...ui('anglesel').options].filter(o=>o.selected).map(o=>+o.value)||ANGLE_DEFAULTS)];newTrial()};
+ui('btn-practice').onclick=()=>{state.total=6;state.trial=0;state.data=[];newTrial()};
+ui('btn-shape').onclick=()=>{BASE=genPolyomino(10);MIRROR=mirrorX(BASE);clear();draw3D(ctxL,BASE,{angle:0,...center(canvasL)});draw3D(ctxR,BASE,{angle:0,...center(canvasR)});ui('status').textContent='New base shape generated.'};
+
+// ---------- Initial preview ----------
+clear();
+draw3D(ctxL,BASE,{angle:0,...center(canvasL)});
+draw3D(ctxR,mirrorX(BASE),{angle:0,...center(canvasR)});
+ui('status').textContent='Tip: press Start, then answer with S/D as fast as possible.';
 </script>
 </body>
 </html>
