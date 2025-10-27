@@ -28,22 +28,10 @@
   <div id="jspsych-target"></div>
 
   <script>
-    // --- test that jsPsych is loaded and functional ---
-    const jsPsych = new window.jsPsychModule.JsPsych({   // ✅ explicit global reference
-      display_element: 'jspsych-target'
-    });
-
-    const trial = {
-      type: jsPsychHtmlKeyboardResponse,
-      stimulus: `
-        <div style="font-size:24px;">
-          jsPsych and three.js are both loaded 🎉<br><br>
-          Press any key to continue.
-        </div>
-      `
-    };
-
-    jsPsych.run([trial]);
+  document.getElementById('jspsych-target').innerHTML = `
+    <h1>Hello 👋</h1>
+    <p>If you see this, your GitHub Pages site is working perfectly.</p>
+  `;
   </script>
 </body>
 </html>
