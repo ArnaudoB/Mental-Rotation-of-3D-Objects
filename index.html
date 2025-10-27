@@ -229,7 +229,7 @@ function draw3D(ctx, poly, {angle=0, offsetX, offsetY, scale}){
   ctx.translate(offsetX, offsetY);
   for(const f of faces){ drawPoly(f.pts, f.color); }
   ctx.restore();
-}));
+};
   // project top-left corners of each unit square
   let squares = depth.map(p=>{
     const pt = project3D(p.x-2.5, p.y-2.5, p.z, 30, angle, scale);
@@ -244,7 +244,6 @@ function draw3D(ctx, poly, {angle=0, offsetX, offsetY, scale}){
     ctx.beginPath(); ctx.rect(s.x, s.y, scale, scale); ctx.fill(); ctx.stroke();
   }
   ctx.restore();
-}
 
 /***********************
  * Experiment state
