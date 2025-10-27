@@ -14,22 +14,36 @@
   <script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
 
   <style>
-    body { background:#111; color:#eee; font-family:sans-serif; text-align:center; }
-    .stim { margin:10px; }
+    body {
+      background: #fafafa;   /* light background for better visibility */
+      color: #111;           /* dark text */
+      font-family: system-ui, sans-serif;
+      text-align: center;
+      margin: 40px;
+    }
+    .stim { margin: 10px; }
   </style>
 </head>
 <body>
   <div id="jspsych-target"></div>
 
   <script>
-    // --- quick test to ensure jsPsych loads ---
-    const jsPsych = new jsPsychModule.JsPsych({
+    // --- test that jsPsych is loaded and functional ---
+    const jsPsych = new window.jsPsychModule.JsPsych({   // ✅ explicit global reference
       display_element: 'jspsych-target'
     });
-    jsPsych.run([{
+
+    const trial = {
       type: jsPsychHtmlKeyboardResponse,
-      stimulus: '<p>jsPsych is working 🎉<br>Press any key to continue.</p>'
-    }]);
+      stimulus: `
+        <div style="font-size:24px;">
+          jsPsych and three.js are both loaded 🎉<br><br>
+          Press any key to continue.
+        </div>
+      `
+    };
+
+    jsPsych.run([trial]);
   </script>
 </body>
 </html>
