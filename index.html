@@ -1,94 +1,400 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Mental Rotation Task</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-
-  <!-- jsPsych UMD (CORS-safe, no modules) -->
-  <script src="https://unpkg.com/jspsych@7.3.3/dist/jspsych.js"></script>
-  <link href="https://unpkg.com/jspsych@7.3.3/dist/jspsych.css" rel="stylesheet" />
-  <script src="https://unpkg.com/@jspsych/plugin-html-keyboard-response@1.1.3"></script>
-
-  <!-- Three.js LEGACY global build (r149 exposes window.THREE) -->
-  <script src="https://unpkg.com/three@0.149.0/build/three.min.js"></script>
-
+  <title>Mental Rotation (Shepard–Metzler style) — Minimal Replication</title>
   <style>
-    body {
-      background: #f5f5f5;
-      color: #111;
-      font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
-      text-align: center;
-      margin: 0;
-      padding: 0;
+    :root{
+      --bg:#0b0d10; --panel:#121720; --ink:#e8eefc; --muted:#9fb0d0; --accent:#6aa3ff; --ok:#53d17a; --bad:#ff6a6a;
     }
-    #jspsych-target { margin-top: 60px; }
-    canvas {
-      display: block;
-      margin: 40px auto;
-      border-radius: 10px;
-      box-shadow: 0 0 10px rgba(0,0,0,0.2);
-    }
+    *{box-sizing:border-box}
+    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--ink);}
+    header{padding:16px 20px;border-bottom:1px solid #1c2330;background:linear-gradient(180deg,#0b0d10,#0b0d10 60%,#0e131b);} 
+    h1{margin:4px 0 0;font-size:20px;letter-spacing:.2px}
+    .wrap{max-width:1100px;margin:0 auto;padding:20px;}
+    .grid{display:grid;gap:16px;grid-template-columns:1fr;}
+    @media (min-width: 980px){.grid{grid-template-columns: 320px 1fr;}}
+    .card{background:var(--panel);border:1px solid #1a2230;border-radius:16px;padding:16px;}
+    .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+    label{font-size:14px;color:var(--muted)}
+    input,select,button{background:#0e1420;color:var(--ink);border:1px solid #1a2230;border-radius:10px;padding:10px 12px;font-size:14px}
+    input:disabled,select:disabled,button:disabled{opacity:.6}
+    button.primary{background:var(--accent);border-color:#2a62ff;color:white;font-weight:600}
+    button.good{background:var(--ok);border-color:#1f9c49;color:#04150b}
+    button.bad{background:#2c1414;border-color:#552626;color:#ffbdbd}
+    .muted{color:var(--muted);font-size:13px}
+    .pill{display:inline-block;padding:4px 8px;border-radius:999px;border:1px solid #263147;background:#0f1520;color:var(--muted);font-size:12px}
+    canvas.stage{width:100%;height:360px;background:#0b0f18;border:1px solid #1a2230;border-radius:12px;display:block}
+    .stage-wrap{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+    .kbd{font-family:ui-monospace, SFMono-Regular, Menlo, monospace;background:#0b0f18;border:1px solid #1a2230;padding:2px 6px;border-radius:6px}
+    table{width:100%;border-collapse:collapse;font-size:14px}
+    th,td{border-bottom:1px solid #1a2230;padding:8px 6px;text-align:right}
+    th:nth-child(1),td:nth-child(1){text-align:left}
+    .ok{color:var(--ok)}
+    .err{color:var(--bad)}
+    footer{opacity:.8;font-size:12px;text-align:center;padding:20px}
+    .sep{height:1px;background:#1a2230;margin:6px 0 12px}
   </style>
 </head>
-
 <body>
-  <div id="jspsych-target"></div>
+  <header>
+    <div class="wrap row" style="justify-content:space-between">
+      <div>
+        <div class="pill">Minimal replica</div>
+        <h1>Mental Rotation Task — interactive (no libraries)</h1>
+      </div>
+      <div class="muted">Keys: <span class="kbd">S</span> = "Same", <span class="kbd">D</span> = "Different"</div>
+    </div>
+  </header>
 
-  <script>
-    // Initialize jsPsych from the UMD build
-    const jsPsych = initJsPsych({ display_element: 'jspsych-target' });
+  <div class="wrap grid">
+    <section class="card">
+      <h3 style="margin:6px 0 12px">Experiment setup</h3>
+      <div class="row" style="margin-bottom:10px">
+        <label for="pid">Participant ID</label>
+        <input id="pid" placeholder="e.g., X21-001" />
+      </div>
+      <div class="row" style="margin-bottom:10px">
+        <label for="ntrials">Trials</label>
+        <input id="ntrials" type="number" min="10" value="80" style="width:100px"/>
+        <label for="anglesel">Angles (deg)</label>
+        <select id="anglesel" multiple size="6" style="min-width:160px">
+          <option>0</option><option>20</option><option>40</option><option>60</option><option>80</option>
+          <option>100</option><option>120</option><option>140</option><option>160</option><option>180</option>
+        </select>
+      </div>
+      <div class="row" style="margin-bottom:10px">
+        <label>Conditions</label>
+        <label class="row"><input id="cond-same" type="checkbox" checked/> Same (rotation)</label>
+        <label class="row"><input id="cond-diff" type="checkbox" checked/> Different (mirror)</label>
+      </div>
+      <div class="row" style="gap:8px">
+        <button id="btn-shape">Regenerate base shape</button>
+        <button id="btn-practice">Practice: 6 trials</button>
+        <button id="btn-start" class="primary">Start experiment</button>
+      </div>
+      <div class="sep"></div>
+      <div class="muted" id="status">Ready. Generate a base shape or start directly.</div>
+    </section>
 
-    const intro = {
-      type: jsPsychHtmlKeyboardResponse,
-      stimulus: `
-        <div style="font-size:24px;">
-          ✅ jsPsych loaded correctly!<br><br>
-          Press any key to test Three.js (legacy global build).
-        </div>`
-    };
+    <section class="card">
+      <div class="stage-wrap">
+        <canvas id="canvasL" class="stage" width="600" height="360" aria-label="Left object"></canvas>
+        <canvas id="canvasR" class="stage" width="600" height="360" aria-label="Right object"></canvas>
+      </div>
+      <div class="row" style="margin-top:12px; gap:8px">
+        <button id="btn-same" class="good">Same (S)</button>
+        <button id="btn-diff" class="bad">Different (D)</button>
+        <div class="pill" id="trialpill">Trial: –</div>
+        <div class="pill" id="anglepill">Angle: –</div>
+        <div class="pill" id="condpill">Condition: –</div>
+        <div class="muted" id="feedback"></div>
+      </div>
+    </section>
 
-    const threeTest = {
-      type: jsPsychHtmlKeyboardResponse,
-      stimulus: `
-        <div id="three-container"></div>
-        <p style="font-size:18px;">Rendering a 3D cube with Three.js (r149) 🧊</p>
-        <p>Press any key to continue.</p>`,
-      on_load: () => {
-        // Use the global THREE exposed by r149
-        const scene = new THREE.Scene();
+    <section class="card" style="grid-column:1 / -1">
+      <h3 style="margin:6px 0 12px">Results</h3>
+      <div id="summary" class="muted">Run some trials to see per-angle reaction times and regression.</div>
+      <div id="tables"></div>
+      <div class="row" style="margin-top:10px; gap:8px">
+        <button id="btn-export">Export CSV</button>
+        <a id="dl" class="pill" href="#" download style="display:none">Download CSV</a>
+      </div>
+    </section>
+  </div>
 
-        // No lights needed with MeshNormalMaterial, so visibility is guaranteed
-        const camera = new THREE.PerspectiveCamera(75, 1, 0.1, 1000);
-        const renderer = new THREE.WebGLRenderer({ antialias: true });
-        const size = Math.min(window.innerWidth * 0.6, 420);
-        renderer.setSize(size, size);
-        document.getElementById('three-container').appendChild(renderer.domElement);
+  <footer>Built with plain HTML/JS/CSS. This is a simplified replica that captures the linear RT vs angle effect on "same" trials.</footer>
 
-        const geometry = new THREE.BoxGeometry(1, 1, 1);
-        const material = new THREE.MeshNormalMaterial(); // self-lit coloring
-        const cube = new THREE.Mesh(geometry, material);
-        scene.add(cube);
+<script>
+/***********************
+ * Utilities
+ ***********************/
+const randChoice = arr => arr[Math.floor(Math.random()*arr.length)];
+const shuffle = arr => { for (let i=arr.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [arr[i],arr[j]]=[arr[j],arr[i]];} return arr };
+const now = () => performance.now();
 
-        camera.position.z = 3;
+/***********************
+ * Polyomino generator (10 squares, orthogonal chain, non-self-intersecting)
+ ***********************/
+function genPolyomino(n=10){
+  const dirs = [[1,0],[-1,0],[0,1],[0,-1]];
+  let cells = new Set();
+  let path = [{x:0,y:0}]; cells.add('0,0');
+  let x=0,y=0; let attempts=0;
+  while (path.length < n && attempts < 5000){
+    attempts++;
+    const [dx,dy] = randChoice(dirs);
+    const nx = x + dx, ny = y + dy;
+    const k = `${nx},${ny}`;
+    // avoid immediate backtrack & self-intersection
+    if (path.length>1){ const prev = path[path.length-2]; if (prev.x===nx && prev.y===ny) continue; }
+    if (!cells.has(k)){
+      path.push({x:nx,y:ny}); cells.add(k); x=nx; y=ny;
+    }
+  }
+  if (path.length < n){ return genPolyomino(n); }
+  // normalize to min corner
+  const xs = path.map(p=>p.x), ys = path.map(p=>p.y);
+  const minx = Math.min(...xs), miny = Math.min(...ys);
+  return path.map(p=>({x:p.x-minx,y:p.y-miny}));
+}
 
-        function animate() {
-          requestAnimationFrame(animate);
-          cube.rotation.x += 0.01;
-          cube.rotation.y += 0.02;
-          renderer.render(scene, camera);
-        }
-        animate();
-      }
-    };
+function mirrorX(poly){
+  const maxx = Math.max(...poly.map(p=>p.x));
+  return poly.map(p=>({x:maxx - p.x, y:p.y}));
+}
 
-    const end = {
-      type: jsPsychHtmlKeyboardResponse,
-      stimulus: `<p>🎉 Success! jsPsych and Three.js are both working.<br>
-        You're ready to build the mental rotation trials.</p>`
-    };
+/***********************
+ * Drawing
+ ***********************/
+function drawPoly(ctx, poly, options={}){
+  const {angle=0, scale=36, offsetX=0, offsetY=0} = options;
+  ctx.save();
+  ctx.translate(offsetX, offsetY);
+  ctx.rotate(angle * Math.PI/180);
+  ctx.lineWidth = 2; ctx.strokeStyle = '#6aa3ff'; ctx.fillStyle = 'rgba(106,163,255,0.10)';
+  for (const c of poly){
+    ctx.beginPath(); ctx.rect(c.x*scale, c.y*scale, scale, scale); ctx.fill(); ctx.stroke();
+  }
+  // outline entire shape
+  ctx.strokeStyle = '#a9c4ff'; ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  for (const c of poly){ ctx.rect(c.x*scale, c.y*scale, scale, scale); }
+  ctx.stroke();
+  ctx.restore();
+}
 
-    jsPsych.run([intro, threeTest, end]);
-  </script>
+function centerOptions(canvas, poly, angle){
+  const scale = 36;
+  const maxx = Math.max(...poly.map(p=>p.x)), maxy = Math.max(...poly.map(p=>p.y));
+  const w = (maxx+1)*scale, h = (maxy+1)*scale;
+  const cx = canvas.width/2, cy = canvas.height/2;
+  // We'll draw around (−w/2, −h/2) after rotation by translating by (cx − w/2, cy − h/2)
+  return { angle, scale, offsetX: cx - w/2, offsetY: cy - h/2 };
+}
+
+/***********************
+ * Experiment logic
+ ***********************/
+const ANGLE_DEFAULTS = [0,20,40,60,80,100,120,140,160,180];
+let BASE = genPolyomino(10);
+let BASE_MIRROR = mirrorX(BASE);
+
+const state = {
+  trial: 0, total: 0, practice:false,
+  angles:[...ANGLE_DEFAULTS], allowSame:true, allowDiff:true,
+  rtStart: null,
+  left:{poly:BASE, angle:0}, right:{poly:BASE, angle:0},
+  condition:null, // 'same' or 'diff'
+  angleCurrent: 0,
+  data: [] // {pid, trial, t, angle, cond, answer, correct, rt_ms}
+};
+
+const el = sel => document.querySelector(sel);
+const canvasL = el('#canvasL');
+const canvasR = el('#canvasR');
+const ctxL = canvasL.getContext('2d');
+const ctxR = canvasR.getContext('2d');
+
+function clearStage(){ ctxL.clearRect(0,0,canvasL.width,canvasL.height); ctxR.clearRect(0,0,canvasR.width,canvasR.height); }
+
+function newTrial(){
+  if (state.practice){ if (state.trial >= state.total){ finishBlock(); return; } }
+  else { if (state.trial >= state.total){ finishBlock(); return; } }
+
+  state.trial++;
+  // left is always base at angle 0 (we can optionally randomize a baseline orientation)
+  const baseAngle = 0; // keep fixed for clarity
+  state.left.poly = BASE; state.left.angle = baseAngle;
+
+  // pick angle and condition
+  const usableAngles = state.angles.length? state.angles : ANGLE_DEFAULTS;
+  const angle = parseInt(randChoice(usableAngles),10);
+  const conds = [state.allowSame? 'same':null, state.allowDiff? 'diff':null].filter(Boolean);
+  const cond = randChoice(conds);
+
+  state.condition = cond; state.angleCurrent = angle;
+
+  // build right shape
+  if (cond === 'same'){
+    state.right.poly = BASE;
+    state.right.angle = (baseAngle + angle) % 360;
+  } else {
+    state.right.poly = BASE_MIRROR;
+    state.right.angle = (baseAngle + angle) % 360;
+  }
+
+  // draw
+  clearStage();
+  drawPoly(ctxL, state.left.poly, centerOptions(canvasL, state.left.poly, state.left.angle));
+  drawPoly(ctxR, state.right.poly, centerOptions(canvasR, state.right.poly, state.right.angle));
+
+  // UI
+  el('#trialpill').textContent = `Trial: ${state.trial}/${state.total}`;
+  el('#anglepill').textContent = `Angle: ${angle}°`;
+  el('#condpill').textContent = `Condition: ${cond === 'same' ? 'SAME' : 'DIFFERENT'}`;
+  el('#feedback').textContent = '';
+
+  // start RT
+  state.rtStart = now();
+}
+
+function respond(ans){
+  if (!state.rtStart) return; // ignore accidental clicks before trial started
+  const t = now();
+  const rt = t - state.rtStart; state.rtStart = null;
+  const correct = (ans === state.condition);
+  const row = {
+    pid: el('#pid').value.trim() || 'NA',
+    trial: state.trial,
+    t: Date.now(),
+    angle: state.angleCurrent,
+    cond: state.condition,
+    answer: ans,
+    correct: correct ? 1 : 0,
+    rt_ms: Math.round(rt)
+  };
+  state.data.push(row);
+  el('#feedback').innerHTML = correct ? `<span class="ok">Correct</span> (${row.rt_ms} ms)` : `<span class="err">Wrong</span> (${row.rt_ms} ms)`;
+
+  setTimeout(()=>{ newTrial(); }, 400);
+}
+
+function finishBlock(){
+  state.rtStart = null;
+  el('#status').textContent = `Block finished. Trials collected: ${state.data.length}.`;
+  el('#trialpill').textContent = 'Trial: –';
+  el('#anglepill').textContent = 'Angle: –';
+  el('#condpill').textContent = 'Condition: –';
+  summarize();
+}
+
+/***********************
+ * Summary + Regression ("same" & correct only)
+ ***********************/
+function summarize(){
+  const sameCorrect = state.data.filter(d=> d.cond==='same' && d.correct===1);
+  if (sameCorrect.length===0){ el('#summary').textContent = 'No correct SAME trials yet.'; return; }
+  // per-angle means
+  const byAngle = new Map();
+  for (const d of sameCorrect){
+    if (!byAngle.has(d.angle)) byAngle.set(d.angle, []);
+    byAngle.get(d.angle).push(d.rt_ms);
+  }
+  const rows = [...byAngle.entries()].map(([ang,list])=>({angle:ang, n:list.length, mean: mean(list), sd: sd(list)}))
+                                    .sort((a,b)=>a.angle-b.angle);
+
+  // Linear regression: RT = a + b * angle (least squares)
+  const xs = rows.map(r=>r.angle), ys = rows.map(r=>r.mean);
+  const {a,b,r2} = linreg(xs, ys);
+
+  const summary = `Same & correct trials: ${sameCorrect.length}. Regression (RT = a + b·angle): a = ${a.toFixed(1)} ms, b = ${b.toFixed(2)} ms/deg, R² = ${r2.toFixed(3)}.`;
+  el('#summary').textContent = summary;
+
+  // Table
+  const tbl = [
+    '<table><thead><tr><th>Angle (°)</th><th>N</th><th>Mean RT (ms)</th><th>SD (ms)</th></tr></thead><tbody>',
+    ...rows.map(r=>`<tr><td>${r.angle}</td><td>${r.n}</td><td>${r.mean.toFixed(1)}</td><td>${r.sd.toFixed(1)}</td></tr>`),
+    '</tbody></table>'
+  ].join('');
+  el('#tables').innerHTML = tbl;
+}
+
+const mean = arr => arr.reduce((s,x)=>s+x,0)/arr.length;
+const sd = arr => { const m=mean(arr); return Math.sqrt(mean(arr.map(x=> (x-m)*(x-m) ))); };
+function linreg(x,y){
+  const n = Math.max(x.length,1);
+  const mx = mean(x), my = mean(y);
+  let num=0, den=0, sst=0;
+  for (let i=0;i<n;i++){ const dx=x[i]-mx, dy=y[i]-my; num += dx*dy; den += dx*dx; sst += (y[i]-my)*(y[i]-my); }
+  const b = den===0? 0 : num/den; const a = my - b*mx;
+  // R^2
+  let ssr=0; for (let i=0;i<n;i++){ const yhat=a+b*x[i]; ssr += (yhat-my)*(yhat-my); }
+  const r2 = sst===0? 0 : ssr/sst;
+  return {a,b,r2};
+}
+
+/***********************
+ * CSV export
+ ***********************/
+function toCSV(rows){
+  const header = ['pid','trial','timestamp_ms','angle_deg','condition','answer','correct','rt_ms'];
+  const lines = [header.join(',')];
+  for (const r of rows){
+    lines.push([r.pid, r.trial, r.t, r.angle, r.cond, r.answer, r.correct, r.rt_ms].join(','));
+  }
+  return lines.join('\n');
+}
+
+/***********************
+ * Wire up UI
+ ***********************/
+function getSelectedAngles(){
+  const sel = el('#anglesel');
+  const values = [...sel.options].filter(o=>o.selected).map(o=>parseInt(o.value,10));
+  return values.length? values : ANGLE_DEFAULTS;
+}
+
+function lockControls(locked){
+  el('#pid').disabled = locked;
+  el('#ntrials').disabled = locked;
+  el('#anglesel').disabled = locked;
+  el('#cond-same').disabled = locked;
+  el('#cond-diff').disabled = locked;
+  el('#btn-shape').disabled = locked;
+  el('#btn-practice').disabled = locked;
+  el('#btn-start').disabled = locked;
+}
+
+el('#btn-shape').addEventListener('click', ()=>{
+  BASE = genPolyomino(10); BASE_MIRROR = mirrorX(BASE);
+  clearStage();
+  drawPoly(ctxL, BASE, centerOptions(canvasL, BASE, 0));
+  drawPoly(ctxR, BASE, centerOptions(canvasR, BASE, 0));
+  el('#status').textContent = 'New base shape generated. (Right now both panels show the same base at 0°)';
+});
+
+el('#btn-practice').addEventListener('click', ()=>{
+  state.practice = true; state.trial=0; state.total=6; state.angles = getSelectedAngles();
+  state.allowSame = el('#cond-same').checked; state.allowDiff = el('#cond-diff').checked;
+  lockControls(true); newTrial();
+  el('#status').textContent = 'Practice running (6 trials).';
+});
+
+el('#btn-start').addEventListener('click', ()=>{
+  state.practice = false; state.trial=0; state.total = Math.max(10, parseInt(el('#ntrials').value||'80',10));
+  state.angles = getSelectedAngles();
+  state.allowSame = el('#cond-same').checked; state.allowDiff = el('#cond-diff').checked;
+  lockControls(true); newTrial();
+  el('#status').textContent = `Experiment running (${state.total} trials).`;
+});
+
+el('#btn-same').addEventListener('click', ()=> respond('same'));
+el('#btn-diff').addEventListener('click', ()=> respond('diff'));
+
+window.addEventListener('keydown', (e)=>{
+  if (e.key==='s' || e.key==='S') respond('same');
+  if (e.key==='d' || e.key==='D') respond('diff');
+});
+
+el('#btn-export').addEventListener('click', ()=>{
+  const csv = toCSV(state.data);
+  const blob = new Blob([csv], {type:'text/csv'});
+  const url = URL.createObjectURL(blob);
+  const a = el('#dl'); a.href = url; a.download = `mental_rotation_${Date.now()}.csv`; a.style.display='inline-block';
+  a.textContent = 'Download CSV';
+});
+
+// Initial draw
+clearStage();
+const tip = 'Tip: press Start, then answer with S/D as fast as possible.';
+const baseOptsL = centerOptions(canvasL, BASE, 0);
+const baseOptsR = centerOptions(canvasR, BASE_MIRROR, 0);
+const oL = {...baseOptsL}; const oR = {...baseOptsR};
+
+drawPoly(ctxL, BASE, oL); drawPoly(ctxR, BASE_MIRROR, oR);
+el('#status').textContent = tip;
+</script>
 </body>
 </html>
