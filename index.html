@@ -5,10 +5,17 @@
   <title>Mental Rotation Task</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
-  <!-- Page style -->
+  <!-- jsPsych classic build (non-module, CORS-safe) -->
+  <script src="https://unpkg.com/jspsych@7.3.3/dist/jspsych.js"></script>
+  <link href="https://unpkg.com/jspsych@7.3.3/dist/jspsych.css" rel="stylesheet">
+  <script src="https://unpkg.com/@jspsych/plugin-html-keyboard-response@1.1.3"></script>
+
+  <!-- three.js classic build -->
+  <script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
+
   <style>
     body {
-      background: #fafafa;
+      background: #f5f5f5;
       color: #111;
       font-family: system-ui, sans-serif;
       text-align: center;
@@ -21,75 +28,72 @@
     canvas {
       display: block;
       margin: 40px auto;
-      border-radius: 12px;
-      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+      border-radius: 10px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.2);
     }
   </style>
 </head>
+
 <body>
   <div id="jspsych-target"></div>
 
-  <!-- Load jsPsych and plugin as ES modules -->
-  <script type="module">
-    import { initJsPsych } from "https://unpkg.com/jspsych@7.3.3/dist/module/jspsych.js";
-    import htmlKeyboardResponse from "https://unpkg.com/@jspsych/plugin-html-keyboard-response@1.1.3";
+  <script>
+    // ---------------------------
+    // Initialize jsPsych correctly
+    // ---------------------------
+    const jsPsych = initJsPsych({
+      display_element: 'jspsych-target'
+    });
 
-    // Initialize jsPsych
-    const jsPsych = initJsPsych({ display_element: 'jspsych-target' });
-
-    // Simple trial to test jsPsych
+    // First trial: intro
     const intro = {
-      type: htmlKeyboardResponse,
+      type: jsPsychHtmlKeyboardResponse,
       stimulus: `
         <div style="font-size:24px;">
-          jsPsych is working 🎉<br><br>
+          ✅ jsPsych loaded correctly!<br><br>
           Press any key to test Three.js.
-        </div>
-      `
+        </div>`
     };
 
-    // Trial that shows a 3D cube rendered by Three.js
-    const cubeTrial = {
-      type: htmlKeyboardResponse,
+    // Second trial: spinning cube
+    const threeTest = {
+      type: jsPsychHtmlKeyboardResponse,
       stimulus: `
         <div id="three-container"></div>
-        <p style="font-size:18px;">This is a spinning 3D cube rendered with Three.js 🧊</p>
-        <p>Press any key to end.</p>
-      `,
+        <p style="font-size:18px;">Rendering a 3D cube with Three.js 🧊</p>
+        <p>Press any key to continue.</p>`,
       on_load: () => {
-        import("https://unpkg.com/three@0.160.0/build/three.module.js").then(THREE => {
-          const scene = new THREE.Scene();
-          const camera = new THREE.PerspectiveCamera(75, 1, 0.1, 1000);
-          const renderer = new THREE.WebGLRenderer({ antialias: true });
-          const size = Math.min(window.innerWidth * 0.6, 400);
-          renderer.setSize(size, size);
-          document.getElementById('three-container').appendChild(renderer.domElement);
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, 1, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        const size = Math.min(window.innerWidth * 0.6, 400);
+        renderer.setSize(size, size);
+        document.getElementById('three-container').appendChild(renderer.domElement);
 
-          const geometry = new THREE.BoxGeometry();
-          const material = new THREE.MeshNormalMaterial();
-          const cube = new THREE.Mesh(geometry, material);
-          scene.add(cube);
+        const geometry = new THREE.BoxGeometry();
+        const material = new THREE.MeshNormalMaterial();
+        const cube = new THREE.Mesh(geometry, material);
+        scene.add(cube);
+        camera.position.z = 3;
 
-          camera.position.z = 3;
-
-          const animate = function () {
-            requestAnimationFrame(animate);
-            cube.rotation.x += 0.01;
-            cube.rotation.y += 0.02;
-            renderer.render(scene, camera);
-          };
-          animate();
-        });
+        function animate() {
+          requestAnimationFrame(animate);
+          cube.rotation.x += 0.01;
+          cube.rotation.y += 0.02;
+          renderer.render(scene, camera);
+        }
+        animate();
       }
     };
 
     const end = {
-      type: htmlKeyboardResponse,
-      stimulus: `<p>✅ All good! jsPsych and Three.js both work.<br>You can now build your Mental Rotation experiment.</p>`
+      type: jsPsychHtmlKeyboardResponse,
+      stimulus: `<p>🎉 Everything works!<br>
+        jsPsych and Three.js are both functioning.<br><br>
+        You're ready for the mental rotation experiment.</p>`
     };
 
-    // Run the short test timeline
-    jsPsych.run([intro, cubeTrial, end]);
+    jsPsych.run([intro, threeTest, end]);
   </script>
 </body>
 </html>
