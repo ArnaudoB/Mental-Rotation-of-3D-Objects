@@ -123,8 +123,35 @@ function mirrorX(p){const maxx=Math.max(...p.map(c=>c.x));return p.map(c=>({x:ma
 
 // ---------- 3D projection & drawing ----------
 function project3D(x,y,z,angleX,angleY,scale){const rx=x,ry=y,rz=z;const radX=angleX*Math.PI/180,radY=angleY*Math.PI/180;const cx=Math.cos(radX),sx=Math.sin(radX),cy=Math.cos(radY),sy=Math.sin(radY);const y2=ry*cx-rz*sx;const z2=ry*sx+rz*cx;const x2=rx*cy+z2*sy;const z3=-rx*sy+z2*cy;return{x:x2*scale,y:y2*scale,z:z3*scale}}
-function draw3D(ctx,poly,{angle=0,offsetX,offsetY}){ctx.save();ctx.translate(offsetX,offsetY);const scale=25;const depth=poly.map(p=>({...p,z:Math.random()*0.6-0.3}));const pts=depth.map(p=>project3D(p.x-2.5,p.y-2.5,p.z,30,angle,scale));ctx.beginPath();ctx.fillStyle='rgba(106,163,255,0.15)';ctx.strokeStyle='#7eb4ff';for(const pt of pts){ctx.rect(pt.x,pt.y,scale,scale)}ctx.fill();ctx.stroke();ctx.restore()}
-function center(canvas){return{offsetX:canvas.width/2,offsetY:canvas.height/2}}
+function draw3D(ctx, poly, {angle=0, offsetX, offsetY, scale=24}){
+  ctx.save();
+  ctx.translate(offsetX, offsetY);
+  // compute a deterministic shallow depth so the object has structure (no randomness per frame)
+  const mx = poly.reduce((s,p)=>s+p.x,0)/poly.length;
+  const my = poly.reduce((s,p)=>s+p.y,0)/poly.length;
+  const depth = poly.map(p=>({x:p.x, y:p.y, z: 0.35*(p.x-mx) - 0.25*(p.y-my)}));
+  // project each square's anchor and keep z for painter's ordering
+  let squares = depth.map(p=>{
+    const pt = project3D(p.x-2.5, p.y-2.5, p.z, 30, angle, scale);
+    return {x: pt.x, y: pt.y, z: pt.z};
+  });
+  // draw far → near for nicer occlusion
+  squares.sort((a,b)=>a.z-b.z);
+  ctx.lineWidth = 2.2;
+  ctx.strokeStyle = '#bcd2ff';
+  ctx.fillStyle = 'rgba(106,163,255,0.55)'; // more opaque so boxes read as solid
+  for (const s of squares){
+    ctx.beginPath();
+    ctx.rect(s.x, s.y, scale, scale);
+    ctx.fill();
+    ctx.stroke();
+  }
+  ctx.restore();
+}));const pts=depth.map(p=>project3D(p.x-2.5,p.y-2.5,p.z,30,angle,scale));ctx.beginPath();ctx.fillStyle='rgba(106,163,255,0.15)';ctx.strokeStyle='#7eb4ff';for(const pt of pts){ctx.rect(pt.x,pt.y,scale,scale)}ctx.fill();ctx.stroke();ctx.restore()}
+function center(canvas){
+  const s = Math.min(canvas.width, canvas.height) / 8; // bigger boxes, still safe
+  return {offsetX: canvas.width/2, offsetY: canvas.height/2, scale: s};
+}}
 
 // ---------- Experiment state ----------
 const ANGLE_DEFAULTS=[0,20,40,60,80,100,120,140,160,180];
