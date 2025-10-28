@@ -68,14 +68,12 @@
       <h3>Results</h3>
       <div id="summary" class="muted">Run trials to see results.</div>
       <div id="tables"></div>
-      <div class="row" style="gap:16px; align-items:flex-start; margin-top:8px">
-        <div style="flex:1; min-width:260px">
-          <div class="muted" style="margin-bottom:6px">Image-plane rotation</div>
-          <canvas id="chartPlane" height="220"></canvas>
+      <div style="display:flex; flex-direction:column; gap:12px; margin-top:8px">
+        <div>
+          <canvas id="chartPlane" height="160"></canvas>
         </div>
-        <div style="flex:1; min-width:260px">
-          <div class="muted" style="margin-bottom:6px">Rotation in depth</div>
-          <canvas id="chartDepth" height="220"></canvas>
+        <div>
+          <canvas id="chartDepth" height="160"></canvas>
         </div>
       </div>
       <div class="row" style="margin-top:10px"><button id="btn-export">Export CSV</button><a id="dl" class="pill" href="#" download style="display:none">Download CSV</a></div>
@@ -206,8 +204,30 @@ function summarize(){
   const ctxD=document.getElementById('chartDepth').getContext('2d');
   if(chartPlane){chartPlane.destroy();} if(chartDepth){chartDepth.destroy();}
   const mkLine=(xs,a,b)=>{ if(xs.length===0) return []; const xMin=Math.min(...xs), xMax=Math.max(...xs); const xLine=[]; for(let t=xMin; t<=xMax; t+=(xMax-xMin)/100||1){ xLine.push(t);} return xLine.map(x=>({x, y:a+b*x})); };
-  chartPlane=new Chart(ctxP,{ type:'scatter', data:{ datasets:[ {label:'Mean RT per angle (plane)', data:P.rows.map(r=>({x:r.angle,y:r.mean})), pointRadius:5, borderWidth:0, backgroundColor:'rgba(255,220,120,0.95)'}, {label:`Fit: RT = ${P.fit.a.toFixed(1)} + ${P.fit.b.toFixed(2)}·θ`, data:mkLine(P.xs,P.fit.a,P.fit.b), type:'line', borderWidth:2, pointRadius:0, fill:false, borderColor:'rgba(255,255,255,0.9)'} ] }, options:{ responsive:true, maintainAspectRatio:false, scales:{ x:{title:{display:true,text:'θ (deg) — plane'}}, y:{title:{display:true,text:'RT (ms)'}} } } });
-  chartDepth=new Chart(ctxD,{ type:'scatter', data:{ datasets:[ {label:'Mean RT per angle (depth)', data:D.rows.map(r=>({x:r.angle,y:r.mean})), pointRadius:5, borderWidth:0, backgroundColor:'rgba(190,230,255,0.95)'}, {label:`Fit: RT = ${D.fit.a.toFixed(1)} + ${D.fit.b.toFixed(2)}·θ`, data:mkLine(D.xs,D.fit.a,D.fit.b), type:'line', borderWidth:2, pointRadius:0, fill:false, borderColor:'rgba(255,255,255,0.9)'} ] }, options:{ responsive:true, maintainAspectRatio:false, scales:{ x:{title:{display:true,text:'θ (deg) — depth'}}, y:{title:{display:true,text:'RT (ms)'}} } } });
+  chartPlane=new Chart(ctxP,{
+    type:'scatter',
+    data:{ datasets:[
+      {label:'Mean RT per angle (plane)', data:P.rows.map(r=>({x:r.angle,y:r.mean})), pointRadius:4, borderWidth:0, backgroundColor:'rgba(255,220,120,0.95)'},
+      {label:`Fit: RT = ${P.fit.a.toFixed(1)} + ${P.fit.b.toFixed(2)}·θ`, data:mkLine(P.xs,P.fit.a,P.fit.b), type:'line', borderWidth:2, pointRadius:0, fill:false, borderColor:'rgba(255,255,255,0.9)'}
+    ] },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      scales:{ x:{title:{display:true,text:'Rotation angle θ (deg) — image plane'}}, y:{title:{display:true,text:'Reaction time (ms)'}} },
+      plugins:{ title:{display:true,text:'RT vs θ — Image-plane rotation'}, legend:{display:true} }
+    }
+  });
+  chartDepth=new Chart(ctxD,{
+    type:'scatter',
+    data:{ datasets:[
+      {label:'Mean RT per angle (depth)', data:D.rows.map(r=>({x:r.angle,y:r.mean})), pointRadius:4, borderWidth:0, backgroundColor:'rgba(190,230,255,0.95)'},
+      {label:`Fit: RT = ${D.fit.a.toFixed(1)} + ${D.fit.b.toFixed(2)}·θ`, data:mkLine(D.xs,D.fit.a,D.fit.b), type:'line', borderWidth:2, pointRadius:0, fill:false, borderColor:'rgba(255,255,255,0.9)'}
+    ] },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      scales:{ x:{title:{display:true,text:'Rotation angle θ (deg) — depth'}}, y:{title:{display:true,text:'Reaction time (ms)'}} },
+      plugins:{ title:{display:true,text:'RT vs θ — Rotation in depth'}, legend:{display:true} }
+    }
+  });
 }
 
 // === CSV export ===
